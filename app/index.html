@@ -3,93 +3,99 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Leonida Trophy Guide — GTA VI · All 55 PS5 Trophies</title>
-<meta name="description" content="The complete offline guide and tracker for all 55 PlayStation 5 trophies of Grand Theft Auto VI: checklist, roadmap to the Platinum, missable flags, and a cited guide for every trophy.">
+<title>Trophy Atlas — GTA VI · All 55 PS5 Trophies</title>
+<meta name="description" content="An offline atlas of all 55 PlayStation 5 trophies of Grand Theft Auto VI: a saving checklist, a cited guide for every trophy, a Platinum roadmap and missable flags.">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header class="masthead">
-  <div class="masthead-inner">
-    <p class="kicker">Grand Theft Auto VI · PlayStation 5 · Unofficial fan guide</p>
-    <h1>Leonida Trophy Guide</h1>
-    <p class="lede">Every one of the 55 trophies — official name, description and grade, a guide in our own words with its sources, and a checklist that saves in your browser. Works fully offline.</p>
-    <div class="progress-wrap" id="progressWrap" aria-live="polite">
-      <div class="progress-numbers"><strong id="earnedCount">0 / 55</strong><span id="progressLabel">trophies earned</span></div>
-      <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
-      <p class="progress-grades" id="gradeCounts"></p>
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">
+      <p class="eyebrow">Grand Theft Auto VI · PlayStation 5 · Unofficial fan guide</p>
+      <h1>Trophy Atlas</h1>
+      <p class="tagline">All 55 trophies, mapped. Tick them off as you earn them — your progress never leaves this browser.</p>
+    </div>
+    <div class="dial" id="dial" role="status" aria-label="Progress">
+      <svg viewBox="0 0 120 120" width="120" height="120" aria-hidden="true">
+        <circle class="dial-track" cx="60" cy="60" r="52"></circle>
+        <circle class="dial-fill" id="dialFill" cx="60" cy="60" r="52"></circle>
+      </svg>
+      <div class="dial-text"><strong id="dialCount">0 / 55</strong><span>earned</span></div>
     </div>
   </div>
+  <p class="grade-line" id="gradeLine"></p>
 </header>
 
+<div class="warn" id="warnBox">
+  <strong>One trophy can be missed.</strong>
+  <span>Positive Mental Attitude needs all 18 meditation spots — and the first spot, Lucia's balcony, is only offered in Chapter 1. Meditate there before Chapter 1 ends, or it is gone for that playthrough. There is no mission replay.</span>
+  <button type="button" class="warn-link" data-open-trophy="positive-mental-attitude">Open its guide</button>
+</div>
+
+<div class="controls" id="controls">
+  <div class="controls-row">
+    <label class="search">Search
+      <input type="search" id="searchBox" placeholder="Trophy, mission or word…" autocomplete="off">
+    </label>
+    <label class="grade-pick">Grade
+      <select id="gradePick">
+        <option value="all">All grades</option>
+        <option value="platinum">Platinum</option>
+        <option value="gold">Gold</option>
+        <option value="silver">Silver</option>
+        <option value="bronze">Bronze</option>
+      </select>
+    </label>
+    <label class="toggle"><input type="checkbox" id="hideEarnedBox"> Hide earned</label>
+    <label class="toggle"><input type="checkbox" id="spoilerBox" checked> Hide story spoilers</label>
+  </div>
+  <div class="controls-row">
+    <div class="chips" id="kindChips" role="group" aria-label="Filter by kind"></div>
+    <div class="file-btns">
+      <button type="button" id="exportBtn">Export progress</button>
+      <button type="button" id="importBtn">Import progress</button>
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
+      <button type="button" id="resetBtn" class="quiet">Reset</button>
+    </div>
+  </div>
+  <p class="count-line" id="countLine"></p>
+</div>
+
 <main>
-  <section class="alert" id="missableAlert" role="note">
-    <strong>One trophy can be missed.</strong>
-    <span><b>Positive Mental Attitude</b> needs all 18 meditation spots — the first, Lucia meditating on her balcony, is only offered in Chapter 1 and is gone after it. There is no mission replay: meditate there before Chapter 1 ends.</span>
-    <a href="#trophy-28" class="alert-link">See the guide →</a>
-  </section>
-
-  <section class="toolbar" aria-label="Tracker controls">
-    <div class="toolbar-row">
-      <label class="search-box">Search
-        <input type="search" id="searchInput" placeholder="Trophy, mission or keyword…" autocomplete="off">
-      </label>
-      <label class="grade-box">Grade
-        <select id="gradeFilter">
-          <option value="all">All grades</option>
-          <option value="platinum">Platinum</option>
-          <option value="gold">Gold</option>
-          <option value="silver">Silver</option>
-          <option value="bronze">Bronze</option>
-        </select>
-      </label>
-      <label class="check-line"><input type="checkbox" id="hideEarned"> Hide earned</label>
-      <label class="check-line spoiler-line"><input type="checkbox" id="spoilerToggle" checked> Hide story spoilers</label>
+  <section aria-labelledby="listHeading">
+    <div class="section-head">
+      <h2 id="listHeading">The 55 trophies</h2>
+      <p>Open a trophy for its guide and sources. Story trophies stay hidden while the spoiler setting is on. Counters count toward their totals — tap + as you go.</p>
     </div>
-    <div class="toolbar-row">
-      <div class="kind-filters" id="kindFilters" role="group" aria-label="Filter by kind"></div>
-      <div class="data-buttons">
-        <button type="button" id="exportBtn">Export progress</button>
-        <button type="button" id="importBtn">Import progress</button>
-        <input type="file" id="importFile" accept="application/json,.json" hidden>
-        <button type="button" id="copyLinkBtn">Copy share link</button>
-        <button type="button" id="resetBtn" class="danger">Reset</button>
-      </div>
-    </div>
-    <p class="toolbar-note" id="filterNote"></p>
+    <div class="grid" id="trophyGrid"></div>
+    <p class="empty" id="emptyNote" hidden>Nothing matches those filters. Clear the search or choose another kind.</p>
   </section>
 
-  <section class="trophy-section" aria-labelledby="listTitle">
-    <h2 id="listTitle">All 55 trophies</h2>
-    <p class="section-intro">Tick a trophy when you earn it — it saves in this browser. Open any trophy for its guide and sources; story trophies stay hidden while the spoiler setting is on. <a href="#roadmap">Roadmap to the Platinum ↓</a></p>
-    <div class="trophy-list" id="trophyList"></div>
-    <p class="empty-state" id="emptyState" hidden>No trophies match these filters. Clear the search or pick another kind.</p>
+  <section class="roadmap" id="roadmap" aria-labelledby="roadmapHeading">
+    <h2 id="roadmapHeading">Roadmap to the Platinum</h2>
+    <p class="section-intro">Play the story once, cleanly, then sweep the open world. The stages run in order and the counts are the ones PlayStation tracks. Nothing here needs online play, and only one trophy can be missed.</p>
+    <ol class="stages" id="stageList"></ol>
   </section>
 
-  <section class="roadmap" id="roadmap" aria-labelledby="roadmapTitle">
-    <h2 id="roadmapTitle">Roadmap to the Platinum — about 200 hours</h2>
-    <p class="section-intro">Play the story once, cleanly, then sweep the open world. The stages run in order; the counts are what PlayStation tracks. Nothing here needs online play, and only one trophy can be missed.</p>
-    <ol class="roadmap-stages" id="roadmapStages"></ol>
-  </section>
-
-  <section class="sources-section" aria-labelledby="sourcesTitle">
-    <h2 id="sourcesTitle">Where the facts come from</h2>
-    <p>The trophy names, descriptions and grades are the official PlayStation list, as carried by Exophase and PSNProfiles. Counts and methods are cross-checked across the guides below, and every trophy's own guide names its sources beside it. All guide text here is written for this page in our own words — sources are cited, never copied.</p>
+  <section class="sources" aria-labelledby="sourcesHeading">
+    <h2 id="sourcesHeading">Where the facts come from</h2>
+    <p>The trophy names, descriptions and grades are the official PlayStation list, as carried by Exophase and PSNProfiles. Counts and methods were cross-checked across the guides below, and every trophy's own guide names its sources beside it. All guide text here is written for this page in our own words — sources are cited, never copied.</p>
     <ul class="source-list">
-      <li><a href="https://howtovideogame.com/gta-6-trophies/" target="_blank" rel="noopener">How To Video Game — GTA 6 Trophy and Achievement List</a></li>
-      <li><a href="https://www.keengamer.com/articles/guides/gta-6-trophy-guide-platinum-roadmap-all-55-trophies/" target="_blank" rel="noopener">KeenGamer — GTA 6 Trophy Guide &amp; Platinum Roadmap</a></li>
-      <li><a href="https://gtascoop.com/guides/gta-6-trophies-achievements/" target="_blank" rel="noopener">GTA Scoop — GTA 6 Trophies &amp; Achievements</a></li>
-      <li><a href="https://gta-zone.com/news/gta-6-trophies-achievements/" target="_blank" rel="noopener">GTA Zone — GTA 6 Trophy List</a></li>
-      <li><a href="https://outputlag.com/guides/gta-6-trophy-list/" target="_blank" rel="noopener">Output Lag — GTA 6 Trophy List</a></li>
-      <li><a href="https://egamers.io/gta-6-trophy-list-all-55-trophies-and-achievements-plus-the-hardest-ones/" target="_blank" rel="noopener">EGamers — GTA 6 Trophy List</a></li>
-      <li><a href="https://all.gg/news/every-gta-6-psn-trophy/" target="_blank" rel="noopener">All.gg — Every GTA 6 PSN Trophy</a></li>
-      <li><a href="https://leonidaunlocked.com/trophies/" target="_blank" rel="noopener">Leonida Unlocked — GTA 6 Trophy List</a></li>
+      <li><a href="https://www.keengamer.com/articles/guides/gta-6-trophy-guide-platinum-roadmap-all-55-trophies/">KeenGamer — GTA 6 Trophy Guide &amp; Platinum Roadmap</a></li>
+      <li><a href="https://howtovideogame.com/gta-6-trophies/">How To Video Game — GTA 6 Trophy and Achievement List</a></li>
+      <li><a href="https://gtascoop.com/guides/gta-6-trophies-achievements/">GTA Scoop — GTA 6 Trophies &amp; Achievements</a></li>
+      <li><a href="https://gta-zone.com/news/gta-6-trophies-achievements/">GTA Zone — GTA 6 Trophy List</a></li>
+      <li><a href="https://outputlag.com/guides/gta-6-trophy-list/">Output Lag — GTA 6 Trophy List</a></li>
+      <li><a href="https://egamers.io/gta-6-trophy-list-all-55-trophies-and-achievements-plus-the-hardest-ones/">EGamers — GTA 6 Trophy List</a></li>
+      <li><a href="https://all.gg/news/every-gta-6-psn-trophy/">All.gg — Every GTA 6 PSN Trophy</a></li>
+      <li><a href="https://leonidaunlocked.com/trophies/">Leonida Unlocked — GTA 6 Trophy List</a></li>
     </ul>
-    <p class="disclaimer">Unofficial fan guide. Not affiliated with, endorsed by or connected to Rockstar Games, Take-Two Interactive, Sony or PlayStation. Grand Theft Auto and GTA are trademarks of Take-Two Interactive. No Rockstar artwork, logos or game images are used anywhere in this guide. A few late-launch trophies are still being confirmed by players — where a trigger is unconfirmed, the guide says so instead of guessing.</p>
+    <p class="fine">Unofficial fan guide. Not affiliated with, endorsed by or connected to Rockstar Games, Take-Two Interactive, Sony or PlayStation. Grand Theft Auto and GTA are trademarks of Take-Two Interactive. No Rockstar artwork, logos or game images are used anywhere in this guide. A few late-launch trophies are still being confirmed by players — where a trigger is unconfirmed, the guide says so instead of guessing.</p>
   </section>
 </main>
 
-<footer class="colophon">
-  <p>Leonida Trophy Guide · all 55 PS5 trophies · saved progress lives only in your browser (localStorage) · export it to keep a backup</p>
+<footer class="foot">
+  <p>Trophy Atlas · GTA VI · all 55 PS5 trophies · progress lives only in your browser (localStorage) · export it to keep a backup</p>
 </footer>
 
 <script type="module" src="app.js"></script>
