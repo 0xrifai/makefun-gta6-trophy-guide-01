@@ -1,176 +1,171 @@
-/* Trophy Atlas — bootstrap.
+/* Leonida Trophy Atlas — bootstrap.
    Loads the trophy data, wires the controls, and re-renders the list,
-   the roadmap and the progress dial whenever the saved state changes.
-   All state flows through state.js; all rendering through cards.js,
-   filters.js and roadmap.js. Nothing here touches the network except
-   the one local fetch of data/trophies.json. */
+   the roadmap and the progress meter whenever the saved state changes.
+   All state flows through state.js; all filtering through filters.js.
+   URL parameters are honoured for linking to a view (?grade=silver,
+   ?kind=collectibles, ?open=<trophy id>). */
 
-import {
-  loadState,
-  saveState,
-  loadTrophies,
-  earnedCount,
-  gradeCounts,
-  exportProgress,
-  importProgress,
-} from "./state.js";
-import {
-  KIND_LABELS,
-  KIND_ORDER,
-  GRADE_ORDER,
-  visibleTrophies,
-  kindCounts,
-} from "./filters.js";
-import { renderGrid, openTrophy } from "./cards.js";
+import { DATA_PATH, countByGrade, countEarned, download, exportText, parseImport, readProgress, writeProgress } from "./state.js";
+import { KIND_LIST, KIND_NAMES, applyFilters, kindTotals } from "./filters.js";
+import { buildTrophyRow, openTrophy } from "./cards.js";
 import { renderRoadmap } from "./roadmap.js";
 
-const state = loadState();
+const listEl = document.getElementById("trophyList");
+const noMatchEl = document.getElementById("noMatch");
+const shownLineEl = document.getElementById("shownLine");
+const searchInput = document.getElementById("searchInput");
+const gradeSelect = document.getElementById("gradeSelect");
+const hideEarnedInput = document.getElementById("hideEarnedInput");
+const spoilerInput = document.getElementById("spoilerInput");
+const kindChipsEl = document.getElementById("kindChips");
+const meterCountEl = document.getElementById("meterCount");
+const meterPctEl = document.getElementById("meterPct");
+const meterFillEl = document.getElementById("meterFill");
+const meterGradesEl = document.getElementById("meterGrades");
+
 let trophies = [];
-const byId = new Map();
+const progress = readProgress();
 
-const grid = document.getElementById("trophyGrid");
-const emptyNote = document.getElementById("emptyNote");
-const countLine = document.getElementById("countLine");
-const dialFill = document.getElementById("dialFill");
-const dialCount = document.getElementById("dialCount");
-const gradeLine = document.getElementById("gradeLine");
-const searchBox = document.getElementById("searchBox");
-const gradePick = document.getElementById("gradePick");
-const hideEarnedBox = document.getElementById("hideEarnedBox");
-const spoilerBox = document.getElementById("spoilerBox");
-const kindChips = document.getElementById("kindChips");
-const stageList = document.getElementById("stageList");
-
-const DIAL_CIRCUMFERENCE = 326.7;
-
-function renderProgress() {
-  const earned = earnedCount(state, trophies);
-  const total = trophies.length || 1;
-  dialCount.textContent = earned + " / " + trophies.length;
-  dialFill.style.strokeDashoffset = String(DIAL_CIRCUMFERENCE * (1 - earned / total));
-  const grades = gradeCounts(state, trophies);
-  gradeLine.innerHTML = "";
-  const parts = GRADE_ORDER.map(
-    (g) => "<b>" + grades[g][0] + " / " + grades[g][1] + "</b> " + g,
-  );
-  gradeLine.insertAdjacentHTML("beforeend", "Earned " + parts.join(" · ") + ".");
+function applyUrlParams() {
+  const params = new URLSearchParams(location.search);
+  const grade = params.get("grade");
+  if (grade && (grade === "all" || ["platinum", "gold", "silver", "bronze"].includes(grade))) {
+    progress.grade = grade;
+  }
+  const kind = params.get("kind");
+  if (kind && KIND_LIST.includes(kind)) progress.kind = kind;
+  return params.get("open");
 }
 
-function renderChips() {
-  const counts = kindCounts(trophies);
-  kindChips.replaceChildren();
-  for (const kind of KIND_ORDER) {
+function renderMeter() {
+  const earned = countEarned(progress, trophies);
+  const total = trophies.length;
+  meterCountEl.textContent = `${earned} / ${total}`;
+  meterPctEl.textContent = total ? `${Math.round((earned / total) * 100)}%` : "0%";
+  meterFillEl.style.width = total ? `${(earned / total) * 100}%` : "0%";
+  const byGrade = countByGrade(progress, trophies);
+  meterGradesEl.textContent = ["platinum", "gold", "silver", "bronze"]
+    .map((g) => `${g[0].toUpperCase() + g.slice(1)} ${byGrade[g][0]}/${byGrade[g][1]}`)
+    .join(" · ");
+}
+
+function renderKindChips() {
+  const totals = kindTotals(trophies);
+  kindChipsEl.innerHTML = "";
+  for (const kind of KIND_LIST) {
     const chip = document.createElement("button");
     chip.type = "button";
-    chip.className = "chip";
-    chip.setAttribute("aria-pressed", String(state.kind === kind));
-    chip.textContent = KIND_LABELS[kind] + " ";
-    const n = document.createElement("span");
-    n.className = "n";
-    n.textContent = "(" + (counts[kind] || 0) + ")";
-    chip.appendChild(n);
+    chip.textContent = `${KIND_NAMES[kind]} (${totals[kind] ?? 0})`;
+    chip.setAttribute("aria-pressed", String(progress.kind === kind));
     chip.addEventListener("click", () => {
-      state.kind = kind;
-      saveState(state);
+      progress.kind = kind;
+      writeProgress(progress);
       renderAll();
     });
-    kindChips.appendChild(chip);
+    kindChipsEl.append(chip);
   }
 }
 
-function renderAll() {
-  const shown = visibleTrophies(trophies, state);
-  const count = renderGrid(grid, shown, state, renderAll);
-  emptyNote.hidden = count > 0;
-  countLine.textContent =
-    "Showing " + count + " of " + trophies.length + " trophies" +
-    (state.kind !== "all" ? " · " + KIND_LABELS[state.kind] : "") +
-    (state.query ? " · matching “" + state.query + "”" : "") +
-    (state.kind === "online" ? " — this list holds no online trophies." : "");
-  renderChips();
-  renderRoadmap(stageList, byId, state, (id) => {
-    /* Roadmap chips jump to the trophy even when a filter hides it:
-       clear the kind filter first so the card is on the page. */
-    if (state.kind !== "all") {
-      state.kind = "all";
-      saveState(state);
+function renderList() {
+  const visible = applyFilters(trophies, progress);
+  listEl.innerHTML = "";
+  for (const trophy of visible) {
+    listEl.append(buildTrophyRow(trophy, progress, () => {
+      writeProgress(progress);
       renderAll();
-    }
-    openTrophy(id);
-  });
-  renderProgress();
+    }));
+  }
+  noMatchEl.hidden = visible.length !== 0;
+  shownLineEl.textContent =
+    visible.length === trophies.length
+      ? `Showing all ${trophies.length} trophies.`
+      : `Showing ${visible.length} of ${trophies.length} trophies.`;
+}
+
+function renderControls() {
+  searchInput.value = progress.query;
+  gradeSelect.value = progress.grade;
+  hideEarnedInput.checked = progress.hideEarned;
+  spoilerInput.checked = progress.spoiler;
+}
+
+function renderAll() {
+  renderMeter();
+  renderKindChips();
+  renderControls();
+  renderList();
 }
 
 function wireControls() {
-  searchBox.value = state.query;
-  searchBox.addEventListener("input", () => {
-    state.query = searchBox.value;
+  searchInput.addEventListener("input", () => {
+    progress.query = searchInput.value;
+    writeProgress(progress);
+    renderList();
+  });
+  gradeSelect.addEventListener("change", () => {
+    progress.grade = gradeSelect.value;
+    writeProgress(progress);
     renderAll();
   });
-  gradePick.value = state.grade;
-  gradePick.addEventListener("change", () => {
-    state.grade = gradePick.value;
-    saveState(state);
+  hideEarnedInput.addEventListener("change", () => {
+    progress.hideEarned = hideEarnedInput.checked;
+    writeProgress(progress);
     renderAll();
   });
-  hideEarnedBox.checked = state.hideEarned;
-  hideEarnedBox.addEventListener("change", () => {
-    state.hideEarned = hideEarnedBox.checked;
-    saveState(state);
-    renderAll();
-  });
-  spoilerBox.checked = state.spoiler;
-  spoilerBox.addEventListener("change", () => {
-    state.spoiler = spoilerBox.checked;
-    saveState(state);
+  spoilerInput.addEventListener("change", () => {
+    progress.spoiler = spoilerInput.checked;
+    writeProgress(progress);
     renderAll();
   });
 
-  document.getElementById("exportBtn").addEventListener("click", () => exportProgress(state));
-  const importFile = document.getElementById("importFile");
-  document.getElementById("importBtn").addEventListener("click", () => importFile.click());
-  importFile.addEventListener("change", async () => {
-    const file = importFile.files && importFile.files[0];
+  document.getElementById("exportButton").addEventListener("click", () => {
+    download("leonida-trophy-atlas-progress.json", exportText(progress));
+  });
+  const importPicker = document.getElementById("importPicker");
+  document.getElementById("importButton").addEventListener("click", () => importPicker.click());
+  importPicker.addEventListener("change", async () => {
+    const file = importPicker.files?.[0];
     if (!file) return;
-    const result = await importProgress(state, file, trophies);
-    importFile.value = "";
-    renderAll();
-    /* renderAll rewrites the count line, so say what happened after it. */
-    countLine.textContent = result.ok
-      ? "Imported progress for " + result.imported + " trophies."
-      : "Import failed: " + result.error;
+    try {
+      const imported = parseImport(await file.text());
+      Object.assign(progress, imported);
+      writeProgress(progress);
+      renderAll();
+    } catch {
+      alert("That file is not a Leonida Trophy Atlas progress export.");
+    }
+    importPicker.value = "";
   });
-  document.getElementById("resetBtn").addEventListener("click", () => {
-    if (!window.confirm("Clear all earned trophies and counters?")) return;
-    state.earned = {};
-    state.counts = {};
-    saveState(state);
+  document.getElementById("resetButton").addEventListener("click", () => {
+    if (!confirm("Clear all earned trophies and counters?")) return;
+    progress.earned = {};
+    progress.counts = {};
+    writeProgress(progress);
     renderAll();
   });
-
-  document.querySelectorAll("[data-open-trophy]").forEach((button) => {
-    button.addEventListener("click", () => {
-      if (state.kind !== "all") {
-        state.kind = "all";
-        saveState(state);
-        renderAll();
-      }
-      openTrophy(button.getAttribute("data-open-trophy"));
-    });
+  document.getElementById("missableOpen").addEventListener("click", () => {
+    progress.kind = "all";
+    progress.grade = "all";
+    progress.query = "";
+    writeProgress(progress);
+    renderAll();
+    openTrophy(listEl, "positive-mental-attitude");
   });
 }
 
-loadTrophies()
-  .then((list) => {
-    trophies = list;
-    for (const t of trophies) byId.set(t.id, t);
-    wireControls();
-    renderAll();
-  })
-  .catch((error) => {
-    grid.replaceChildren();
-    const note = document.createElement("p");
-    note.className = "empty";
-    note.textContent = "The trophy list could not be loaded: " + error.message;
-    grid.appendChild(note);
-  });
+async function boot() {
+  const openId = applyUrlParams();
+  const response = await fetch(DATA_PATH);
+  const data = await response.json();
+  trophies = data.trophies ?? data;
+  renderRoadmap(document.getElementById("stageList"));
+  wireControls();
+  renderAll();
+  if (openId) openTrophy(listEl, openId);
+}
+
+boot().catch((error) => {
+  listEl.innerHTML = "";
+  noMatchEl.hidden = false;
+  noMatchEl.textContent = `The trophy list could not be loaded (${error.message}). Check that app/data/trophies.json is present and valid.`;
+});

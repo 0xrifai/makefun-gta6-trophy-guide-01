@@ -1,9 +1,9 @@
-// Trophy Atlas — GTA VI trophy guide, hand-in program (Node 22, standard
-// library only). The guide itself is plain static files: app/index.html
-// opens in a browser with app/ as its root, loads nothing over the
-// network, and keeps its trophy list in app/data/trophies.json. This
-// program copies app/ and screenshots/ from beside this file to /output
-// (or $MAKEFUN_OUTPUT_DIR outside the grader) and writes
+// Leonida Trophy Atlas — GTA VI trophy guide, hand-in program (Node 22,
+// standard library only). The guide itself is plain static files:
+// app/index.html opens in a browser with app/ as its root, loads nothing
+// over the network, and keeps its trophy list in app/data/trophies.json.
+// This program copies app/ and screenshots/ from beside this file to
+// /output (or $MAKEFUN_OUTPUT_DIR outside the grader) and writes
 // /output/dossier.json with the vendored make.fun library — the summary
 // the judge reads: the screenshots, the first load's files and bytes,
 // and the guide's source. Leave vendor/makefun-frontend.ts as it is:
@@ -15,7 +15,7 @@
 // MAKEFUN_OUTPUT_DIR stands in for /output:
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 
-import { cpSync, existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildDossier } from "./vendor/makefun-frontend.ts";
@@ -30,33 +30,19 @@ if (existsSync(join(here, "screenshots"))) {
   cpSync(join(here, "screenshots"), join(out, "screenshots"), { recursive: true });
 }
 
-// The scorer's own caps (reference/gate.json): only text_max_bytes
-// shapes the bytes; the others refuse an entry the scorer would refuse
-// (more than 4 screenshots or one over 256 KiB; more than 993 files and
-// directories in app/ or 48 MiB of app files — app/ counts beside
+// The scorer's own caps (reference/gate.json): only text_max_bytes shapes
+// the bytes; the others refuse an entry the scorer would refuse (more
+// than 4 screenshots or one over 256 KiB; more than 993 files and
+// directories in app/ or 48 MiB of app files: app/ counts beside
 // /output's own 1000-entry cap, its screenshots/ and dossier.json).
-const dossier = buildDossier(out, {
-  text_max_bytes: 163840,
-  screenshots: { max: 4, max_bytes: 262144 },
-  app_max_files: 993,
-  app_max_bytes: 50331648,
-});
-writeFileSync(join(out, "dossier.json"), dossier);
+writeFileSync(
+  join(out, "dossier.json"),
+  buildDossier(out, {
+    text_max_bytes: 163840,
+    screenshots: { max: 4, max_bytes: 262144 },
+    app_max_files: 993,
+    app_max_bytes: 50331648,
+  }),
+);
 
-// A short report on stdout so a local run shows what was handed in:
-// the dossier's bytes, the screenshots, and the app's file count.
-const shotDir = join(out, "screenshots");
-const shots = existsSync(shotDir)
-  ? readdirSync(shotDir).filter((f) => statSync(join(shotDir, f)).isFile())
-  : [];
-let appFiles = 0;
-const walk = (dir) => {
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (entry.isDirectory()) walk(join(dir, entry.name));
-    else appFiles += 1;
-  }
-};
-walk(join(out, "app"));
-console.log(`dossier.json: ${dossier.length} bytes`);
-console.log(`screenshots: ${shots.join(", ") || "(none)"}`);
-console.log(`app files: ${appFiles}`);
+console.log(`Leonida Trophy Atlas handed in to ${out} (dossier.json written).`);

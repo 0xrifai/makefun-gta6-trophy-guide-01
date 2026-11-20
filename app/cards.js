@@ -1,155 +1,168 @@
-/* Trophy Atlas — the trophy cards.
-   One card per trophy: a tick box, the official name, description and
-   grade, kind tags, a counter for trophies that track a total, and a
-   guide that opens in place with its sources. Everything is built
-   with textContent and createElement, never innerHTML, so a trophy
-   name can never break the page. */
+/* Leonida Trophy Atlas — the trophy rows.
+   One row per trophy: a tick box, the official name, description and
+   grade, kind tags, a stepper for trophies that track a total, and a
+   guide that opens below the row with its sources named beside it. */
 
-import { isSpoiled, kindOf, KIND_LABELS } from "./filters.js";
-import { setCount, toggleEarned } from "./state.js";
+import { bumpCounter, counterValue, toggleEarned } from "./state.js";
+import { isMasked, kindOf } from "./filters.js";
 
-function el(tag, className, text) {
-  const node = document.createElement(tag);
-  if (className) node.className = className;
-  if (text !== undefined) node.textContent = text;
-  return node;
+const GRADE_WORD = { platinum: "Platinum", gold: "Gold", silver: "Silver", bronze: "Bronze" };
+const KIND_WORD = {
+  story: "Story",
+  missable: "Missable",
+  collectibles: "Collectibles",
+  activities: "Activities",
+  completion: "Completion",
+  online: "Online",
+};
+
+function tag(text, className) {
+  const el = document.createElement("span");
+  el.className = `tag${className ? ` ${className}` : ""}`;
+  el.textContent = text;
+  return el;
 }
 
-function gradeBadge(grade) {
-  return el("span", "badge " + grade, grade);
-}
+function buildCounter(trophy, progress, onChange) {
+  const row = document.createElement("div");
+  row.className = "counter-row";
+  const value = counterValue(progress, trophy);
 
-function formatCount(n) {
-  return n.toLocaleString("en-US");
-}
-
-/* Build the guide panel for one trophy: the guide text in our own
-   words, then the sources it cites, each as a link the reader may
-   choose to follow (the app itself fetches nothing). */
-function buildGuide(trophy) {
-  const box = el("div", "guide");
-  box.appendChild(el("p", null, trophy.guide));
-  if (Array.isArray(trophy.sources) && trophy.sources.length) {
-    box.appendChild(el("h4", null, "Sources"));
-    const list = el("ul");
-    for (const source of trophy.sources) {
-      const item = el("li");
-      const link = el("a", null, source.name);
-      link.href = source.url;
-      link.target = "_blank";
-      link.rel = "noopener";
-      item.appendChild(link);
-      list.appendChild(item);
-    }
-    box.appendChild(list);
-  }
-  return box;
-}
-
-function buildCounter(trophy, state, onChange) {
-  const total = trophy.count;
-  const current = state.counts[trophy.id] || 0;
-  const row = el("div", "counter");
-  const minus = el("button", null, "−");
+  const minus = document.createElement("button");
   minus.type = "button";
-  minus.setAttribute("aria-label", "Decrease count for " + trophy.name);
-  const label = el("span");
-  const value = el("b", null, formatCount(current) + " / " + formatCount(total));
-  label.append("Progress: ", value);
-  const plus = el("button", null, "+");
-  plus.type = "button";
-  plus.setAttribute("aria-label", "Increase count for " + trophy.name);
+  minus.textContent = "−";
+  minus.setAttribute("aria-label", "Count one fewer");
   minus.addEventListener("click", () => {
-    setCount(state, trophy, current - 1);
+    bumpCounter(progress, trophy, -1);
     onChange();
   });
+
+  const shown = document.createElement("span");
+  shown.className = "counter-value";
+  shown.textContent = `${value} / ${trophy.count}`;
+
+  const plus = document.createElement("button");
+  plus.type = "button";
+  plus.textContent = "+";
+  plus.setAttribute("aria-label", "Count one more");
   plus.addEventListener("click", () => {
-    setCount(state, trophy, current + 1);
+    bumpCounter(progress, trophy, 1);
     onChange();
   });
-  row.append(minus, label, plus);
+
+  const hint = document.createElement("span");
+  hint.textContent = "toward the total PlayStation tracks";
+
+  row.append(minus, shown, plus, hint);
   return row;
 }
 
-export function buildCard(trophy, state, onChange) {
-  const card = el("article", "card");
-  card.id = "trophy-" + trophy.id;
-  const earned = Boolean(state.earned[trophy.id]);
-  if (earned) card.classList.add("earned");
-  const spoiled = isSpoiled(trophy, state);
+function buildSources(trophy) {
+  const note = document.createElement("p");
+  note.className = "source-note";
+  note.textContent = "Sources: ";
+  (trophy.sources || []).forEach((source, i) => {
+    if (i > 0) note.append(document.createTextNode(" · "));
+    const link = document.createElement("a");
+    link.href = source.url;
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.textContent = source.name;
+    note.append(link);
+  });
+  if (!(trophy.sources || []).length) note.textContent = "Sources: official PlayStation trophy list.";
+  return note;
+}
 
-  const head = el("div", "card-head");
-  const tick = el("input", "tick");
-  tick.type = "checkbox";
-  tick.checked = earned;
-  tick.setAttribute("aria-label", "Mark " + (spoiled ? "this story trophy" : trophy.name) + " earned");
-  tick.addEventListener("change", () => {
-    toggleEarned(state, trophy);
+export function buildTrophyRow(trophy, progress, onChange) {
+  const masked = isMasked(trophy, progress);
+  const earned = Boolean(progress.earned[trophy.id]);
+
+  const article = document.createElement("article");
+  article.className = `trophy${earned ? " earned" : ""}`;
+  article.dataset.trophyId = trophy.id;
+
+  const head = document.createElement("button");
+  head.type = "button";
+  head.className = "trophy-head";
+  head.setAttribute("aria-expanded", "false");
+
+  const tick = document.createElement("span");
+  tick.className = "tick";
+  tick.setAttribute("aria-hidden", "true");
+  tick.textContent = "✓";
+
+  const middle = document.createElement("span");
+
+  const name = document.createElement("span");
+  name.className = "trophy-name";
+  name.textContent = masked ? "Hidden story trophy" : trophy.name;
+
+  const desc = document.createElement("span");
+  desc.className = "trophy-desc";
+  desc.textContent = masked
+    ? "A story trophy — its name and description stay hidden until you earn it."
+    : trophy.description;
+
+  const tags = document.createElement("span");
+  tags.className = "tags";
+  tags.append(tag(KIND_WORD[kindOf(trophy)] || kindOf(trophy)));
+  if (trophy.missable) tags.append(tag("Missable — read before Chapter 1 ends", "missable-tag"));
+  if (trophy.hidden) tags.append(tag("Hidden on PlayStation", "hidden-tag"));
+  if (trophy.count) tags.append(tag(`Counts to ${trophy.count.toLocaleString("en-US")}`));
+
+  middle.append(name, desc, tags);
+
+  const chip = document.createElement("span");
+  chip.className = `grade-chip grade-${trophy.grade}`;
+  chip.textContent = GRADE_WORD[trophy.grade] || trophy.grade;
+
+  head.append(tick, middle, chip);
+
+  const body = document.createElement("div");
+  body.className = "trophy-body";
+  body.hidden = true;
+
+  const guideHeading = document.createElement("h3");
+  guideHeading.textContent = "Guide";
+  const guide = document.createElement("p");
+  guide.className = "guide-text";
+  guide.textContent = masked ? "Earn this trophy to reveal its guide." : trophy.guide;
+
+  body.append(guideHeading, guide);
+  if (trophy.count) body.append(buildCounter(trophy, progress, onChange));
+  body.append(buildSources(trophy));
+
+  head.addEventListener("click", (event) => {
+    /* A click on the tick toggles earned; a click anywhere else opens
+       or closes the guide. */
+    if (event.target === tick) return;
+    const open = body.hidden;
+    body.hidden = !open;
+    head.setAttribute("aria-expanded", String(open));
+  });
+
+  tick.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleEarned(progress, trophy.id);
     onChange();
   });
-  head.appendChild(tick);
 
-  const name = el("h3", "card-name");
-  const nameButton = el("button", null, spoiled ? "Hidden story trophy" : trophy.name);
-  nameButton.type = "button";
-  nameButton.setAttribute("aria-expanded", "false");
-  name.appendChild(nameButton);
-  head.appendChild(name);
-  head.appendChild(gradeBadge(trophy.grade));
-  card.appendChild(head);
-
-  if (spoiled) {
-    card.appendChild(el("p", "spoiler-mask", "Story trophy — its name and description stay hidden until you earn it. Tick the box when you have it, or turn the spoiler setting off."));
-  } else {
-    card.appendChild(el("p", "card-desc", trophy.description || ""));
-  }
-
-  const tags = el("div", "card-tags");
-  tags.appendChild(el("span", "tag", KIND_LABELS[kindOf(trophy)] || kindOf(trophy)));
-  if (trophy.hidden) tags.appendChild(el("span", "tag hidden-t", "Hidden on PSN"));
-  if (trophy.missable) tags.appendChild(el("span", "tag missable", "Missable"));
-  if (earned) tags.appendChild(el("span", "tag earned-t", "Earned"));
-  card.appendChild(tags);
-
-  if (typeof trophy.count === "number" && !spoiled) {
-    card.appendChild(buildCounter(trophy, state, onChange));
-  }
-
-  /* The guide opens in place. It is built once, hidden until asked
-     for, and its text comes from the data file, not from this code. */
-  let guideBox = null;
-  nameButton.addEventListener("click", () => {
-    if (!guideBox) {
-      guideBox = spoiled
-        ? el("div", "guide", null)
-        : buildGuide(trophy);
-      if (spoiled) guideBox.appendChild(el("p", "spoiler-mask", "Earn this trophy to reveal its guide."));
-      guideBox.hidden = true;
-      card.appendChild(guideBox);
-    }
-    guideBox.hidden = !guideBox.hidden;
-    nameButton.setAttribute("aria-expanded", String(!guideBox.hidden));
-  });
-
-  return card;
+  article.append(head, body);
+  return article;
 }
 
-/* Render the whole list into the grid. Returns the number shown. */
-export function renderGrid(grid, trophies, state, onChange) {
-  grid.replaceChildren();
-  for (const trophy of trophies) {
-    grid.appendChild(buildCard(trophy, state, onChange));
+/* Opens one trophy's guide by id (used by the missable banner and by
+   ?open=<id> links). Returns true when the trophy is on the page. */
+export function openTrophy(listEl, trophyId) {
+  const row = listEl.querySelector(`[data-trophy-id="${trophyId}"]`);
+  if (!row) return false;
+  const body = row.querySelector(".trophy-body");
+  const head = row.querySelector(".trophy-head");
+  if (body && body.hidden) {
+    body.hidden = false;
+    head.setAttribute("aria-expanded", "true");
   }
-  return trophies.length;
-}
-
-/* Open one trophy's guide from outside the grid — used by the roadmap
-   chips and the missable warning. */
-export function openTrophy(id) {
-  const card = document.getElementById("trophy-" + id);
-  if (!card) return false;
-  card.scrollIntoView({ behavior: "smooth", block: "center" });
-  const button = card.querySelector(".card-name button");
-  if (button && button.getAttribute("aria-expanded") !== "true") button.click();
+  row.scrollIntoView({ block: "center" });
   return true;
 }
